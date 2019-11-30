@@ -17,11 +17,11 @@ var localPort = flag.String("localPort", "9001", "用户访问服务器端口")
 var remotePort = flag.String("remotePort", "2333", "与客户端通讯端口")
 
 // client 相关数据
+// disHeart 表示没有收到心跳包
 type client struct {
 	conn     net.Conn
 	er       chan bool
-	isHeart  chan bool
-	disHeart bool
+	disHeart chan bool
 	writ     chan bool
 	recv     chan []byte
 	send     chan []byte
@@ -39,18 +39,18 @@ type user struct {
 // 读取从 client 中的数据
 func (c *client) read() {
 	for {
-		// 40秒没有数据传输则断开链接
+		// 40秒没有数据（心跳包或者数据）传输则断开链接
 		_ = c.conn.SetReadDeadline(time.Now().Add(time.Second * 40))
 		recv := make([]byte, 10240)
 		n, err := c.conn.Read(recv)
 
 		if err != nil {
-			c.isHeart <- true
+			c.disHeart <- true
 			c.er <- true
 			c.writ <- true
 			fmt.Println("Message has not been transmitted for a long time,or the client has been closed,accept a new tcp connection")
 		}
-		// 检测如果收到心跳包 cc 那么返回一个 ss
+		// 检测如果收到的是心跳包 cc 那么返回一个 ss
 		if recv[0] == 'c' && recv[1] == 'c' {
 			_, _ = c.conn.Write([]byte("ss"))
 			continue
@@ -121,17 +121,17 @@ func log(err error) {
 }
 
 // 监听端口
-func accept(con net.Listener) net.Conn {
-	CorU, err := con.Accept()
+func accept(c net.Listener) net.Conn {
+	ClientConn, err := c.Accept()
 	logExit(err)
-	return CorU
+	return ClientConn
 }
 
 // 在另一个进程监听端口
-func goAccept(con net.Listener, Uconn chan net.Conn) {
-	CorU, err := con.Accept()
+func goAccept(u net.Listener, UserConn chan net.Conn) {
+	TmpConn, err := u.Accept()
 	logExit(err)
-	Uconn <- CorU
+	UserConn <- TmpConn
 }
 
 // 处理两个 socket 之间的衔接
@@ -183,4 +183,48 @@ func main() {
 	log(err)
 	u, err := net.Listen("tcp", ":"+*localPort)
 	log(err)
+
+EXIT:
+	for {
+		// 与 user 建立连接
+		UserConn := make(chan net.Conn)
+		// 监听 user ，这里因为 UserConn 被阻塞在等待与 Client 建立一条 TCP 连接后才会释放
+		go goAccept(u, UserConn)
+		fmt.Println("User has prepared")
+		clientConn := accept(c)
+		fmt.Println("client has prepared", clientConn.LocalAddr().String())
+
+		recv := make(chan []byte)
+		send := make(chan []byte)
+		disHeart := make(chan bool, 1)
+		// 1个位置是为了防止两个读取线程一个退出后另一个永远卡住
+		er := make(chan bool, 1)
+		writ := make(chan bool)
+		client := &client{clientConn, er, disHeart, writ, recv, send}
+
+		go client.read()
+		go client.write()
+
+		for {
+			select {
+			case <-client.disHeart:
+				break EXIT
+			case userConn := <-UserConn:
+				recv = make(chan []byte)
+				send = make(chan []byte)
+				// 1个位置是为了防止两个读取线程一个退出后另一个永远卡住，即 user 或者 client 有一个 er 为 true 时
+				// 就是断开它断开连接了，这是要关闭这个 TCP 连接， 但是 read goroutine 可能不止一个,每关闭一个 read goroutine 就要
+				// 关闭一个 TCP 连接，那么多个 read goroutine 不加锁的情况下可能就会造成 handle goroutine死锁
+				er = make(chan bool, 1)
+				writ = make(chan bool)
+				user := &user{userConn, er, writ, recv, send}
+				go user.read()
+				go user.write()
+				// 当两个 socket 都创立后进入 handle 处理
+				go handle(client, user)
+				break EXIT
+			}
+		}
+	}
+
 }
