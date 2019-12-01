@@ -47,7 +47,7 @@ func (b browser) read() {
 		recv := make([]byte, 10240)
 		n, err := b.conn.Read(recv)
 		if err == io.EOF {
-			fmt.Println("Read finished")
+			fmt.Println("Browser Read finished")
 		} else if err != nil {
 			b.writ <- true
 			b.er <- true
@@ -84,7 +84,7 @@ func (s *server) read() {
 		recv := make([]byte, 10240)
 		n, err := s.conn.Read(recv)
 		if err == io.EOF {
-			fmt.Println("Read finished")
+			fmt.Println("Server Read finished")
 		} else if err != nil {
 			// 超时并且没有发送过心跳包
 			if strings.Contains(err.Error(), "timeout") && !isHeart {

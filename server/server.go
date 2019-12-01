@@ -45,7 +45,7 @@ func (c *client) read() {
 		recv := make([]byte, 10240)
 		n, err := c.conn.Read(recv)
 		if err == io.EOF {
-			fmt.Println("Read finished")
+			fmt.Println("Client Read finished")
 		} else if err != nil {
 			c.disHeart <- true
 			c.er <- true
@@ -83,7 +83,7 @@ func (u user) read() {
 		n, err := u.conn.Read(recv)
 		_ = u.conn.SetReadDeadline(time.Time{})
 		if err == io.EOF {
-			fmt.Println("Read finished")
+			fmt.Println("Client Read finished")
 		}
 		if err != nil {
 			u.er <- true
