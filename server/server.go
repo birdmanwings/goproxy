@@ -6,6 +6,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"runtime"
@@ -43,8 +44,9 @@ func (c *client) read() {
 		_ = c.conn.SetReadDeadline(time.Now().Add(time.Second * 40))
 		recv := make([]byte, 10240)
 		n, err := c.conn.Read(recv)
-
-		if err != nil {
+		if err == io.EOF {
+			fmt.Println("Read finished")
+		} else if err != nil {
 			c.disHeart <- true
 			c.er <- true
 			c.writ <- true
@@ -80,6 +82,9 @@ func (u user) read() {
 		recv := make([]byte, 10240)
 		n, err := u.conn.Read(recv)
 		_ = u.conn.SetReadDeadline(time.Time{})
+		if err == io.EOF {
+			fmt.Println("Read finished")
+		}
 		if err != nil {
 			u.er <- true
 			u.writ <- true

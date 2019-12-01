@@ -6,6 +6,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"runtime"
@@ -45,7 +46,9 @@ func (b browser) read() {
 		// 声明 recv 切片用于缓冲数据
 		recv := make([]byte, 10240)
 		n, err := b.conn.Read(recv)
-		if err != nil {
+		if err == io.EOF {
+			fmt.Println("Read finished")
+		} else if err != nil {
 			b.writ <- true
 			b.er <- true
 			fmt.Println("Read browser fail", err)
@@ -80,12 +83,14 @@ func (s *server) read() {
 	for {
 		recv := make([]byte, 10240)
 		n, err := s.conn.Read(recv)
-		if err != nil {
+		if err == io.EOF {
+			fmt.Println("Read finished")
+		} else if err != nil {
 			// 超时并且没有发送过心跳包
 			if strings.Contains(err.Error(), "timeout") && !isHeart {
 				fmt.Println("Send the heartbreak packet")
 				_, _ = s.conn.Write([]byte("cc"))
-				_ = s.conn.SetReadDeadline(time.Now().Add(time.Second * 4))
+				_ = s.conn.SetReadDeadline(time.Now().Add(time.Second * 20))
 				isHeart = true
 				continue
 			}
