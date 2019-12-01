@@ -65,7 +65,8 @@ func (b browser) write() {
 			_, _ = b.conn.Write(send)
 		case <-b.writ:
 			fmt.Println("Write process close")
-			break
+			// 这里存疑，break跳不出循环啊,感觉改成return
+			return
 		}
 	}
 }
@@ -80,6 +81,7 @@ func (s *server) read() {
 		recv := make([]byte, 10240)
 		n, err := s.conn.Read(recv)
 		if err != nil {
+			// 超时并且没有发送过心跳包
 			if strings.Contains(err.Error(), "timeout") && !isHeart {
 				fmt.Println("Send the heartbreak packet")
 				_, _ = s.conn.Write([]byte("cc"))
@@ -97,7 +99,7 @@ func (s *server) read() {
 		// 成功收到心跳包，刷新超时时间回20秒
 		if recv[0] == 's' && recv[1] == 's' {
 			fmt.Println("Receive the heartbreak packet")
-			_ = s.conn.SetReadDeadline(time.Now().Add(time.Second * 29))
+			_ = s.conn.SetReadDeadline(time.Now().Add(time.Second * 20))
 			isHeart = false
 			continue
 		}
@@ -114,7 +116,7 @@ func (s server) write() {
 			_, _ = s.conn.Write(send)
 		case <-s.writ:
 			fmt.Println("Write process close")
-			break
+			return
 		}
 	}
 }
@@ -143,7 +145,7 @@ func handle(server *server, next chan bool) {
 	serverRecv = <-server.recv
 	// 链接后，下一个 tcp 连上服务器
 	next <- true
-	fmt.Println("Start a new tcp connection,message is:", string(serverRecv))
+	// fmt.Println("Start a new tcp connection,message is:", string(serverRecv))
 	var browse *browser
 	// 链接本地80端口
 	serverConn := dialTCP("127.0.0.1:" + *localPort)
@@ -173,6 +175,7 @@ func handle(server *server, next chan bool) {
 			fmt.Println("Server close,then close browse")
 			_ = server.conn.Close()
 			_ = browse.conn.Close()
+			runtime.Goexit()
 		case <-browse.er:
 			fmt.Println("Browse close,then close server")
 			_ = server.conn.Close()

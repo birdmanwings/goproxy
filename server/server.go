@@ -68,7 +68,7 @@ func (c client) write() {
 			_, _ = c.conn.Write(send)
 		case <-c.writ:
 			fmt.Println("Write process close")
-			break
+			return
 		}
 	}
 }
@@ -99,8 +99,7 @@ func (u user) write() {
 			_, _ = u.conn.Write(send)
 		case <-u.writ:
 			fmt.Println("Write user process close")
-			break
-
+			return
 		}
 	}
 }
@@ -170,11 +169,11 @@ func main() {
 	local, _ := strconv.Atoi(*localPort)
 	remote, _ := strconv.Atoi(*remotePort)
 	if !(local >= 0 && local < 65536) {
-		fmt.Println("端口设置错误")
+		fmt.Println("Port error")
 		os.Exit(1)
 	}
 	if !(remote >= 0 && remote < 65536) {
-		fmt.Println("端口设置错误")
+		fmt.Println("Port error")
 		os.Exit(1)
 	}
 
