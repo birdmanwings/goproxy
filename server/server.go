@@ -83,7 +83,7 @@ func (u user) read() {
 		n, err := u.conn.Read(recv)
 		_ = u.conn.SetReadDeadline(time.Time{})
 		if err == io.EOF {
-			fmt.Println("Client Read finished")
+			fmt.Println("User Read finished")
 		}
 		if err != nil {
 			u.er <- true
