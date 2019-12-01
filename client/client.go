@@ -6,7 +6,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"runtime"
@@ -46,9 +45,7 @@ func (b browser) read() {
 		// 声明 recv 切片用于缓冲数据
 		recv := make([]byte, 10240)
 		n, err := b.conn.Read(recv)
-		if err == io.EOF {
-			fmt.Println("Browser Read finished")
-		} else if err != nil {
+		if err != nil {
 			b.writ <- true
 			b.er <- true
 			fmt.Println("Read browser fail", err)
@@ -83,9 +80,7 @@ func (s *server) read() {
 	for {
 		recv := make([]byte, 10240)
 		n, err := s.conn.Read(recv)
-		if err == io.EOF {
-			fmt.Println("Server Read finished")
-		} else if err != nil {
+		if err != nil {
 			// 超时并且没有发送过心跳包
 			if strings.Contains(err.Error(), "timeout") && !isHeart {
 				fmt.Println("Send the heartbreak packet")
@@ -93,13 +88,14 @@ func (s *server) read() {
 				_ = s.conn.SetReadDeadline(time.Now().Add(time.Second * 20))
 				isHeart = true
 				continue
+			} else if strings.Contains(err.Error(), "timeout") {
+				// 已经尝试发送过一次心跳包但是仍然超时没有得到回应
+				s.recv <- []byte("0")
+				s.er <- true
+				s.writ <- true
+				fmt.Println("No heartbreak packet received,close the tcp connection", err)
+				break
 			}
-			// 已经尝试发送过一次心跳包但是仍然超时没有得到回应
-			s.recv <- []byte("0")
-			s.er <- true
-			s.writ <- true
-			fmt.Println("No heartbreak packet received,close the tcp connection", err)
-			break
 		}
 		// 成功收到心跳包，刷新超时时间回20秒
 		if recv[0] == 's' && recv[1] == 's' {
