@@ -88,14 +88,14 @@ func (s *server) read() {
 				_ = s.conn.SetReadDeadline(time.Now().Add(time.Second * 20))
 				isHeart = true
 				continue
-			} else if strings.Contains(err.Error(), "timeout") {
-				// 已经尝试发送过一次心跳包但是仍然超时没有得到回应
-				s.recv <- []byte("0")
-				s.er <- true
-				s.writ <- true
-				fmt.Println("No heartbreak packet received,close the tcp connection", err)
-				break
 			}
+			// 已经尝试发送过一次心跳包但是仍然超时没有得到回应
+			s.recv <- []byte("0")
+			s.er <- true
+			s.writ <- true
+			fmt.Println("No heartbreak packet received,close the tcp connection", err)
+			break
+
 		}
 		// 成功收到心跳包，刷新超时时间回20秒
 		if recv[0] == 's' && recv[1] == 's' {
