@@ -2,22 +2,20 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 )
 
-type B struct {
-	thing int
+func myWeb(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "fuvk")
 }
 
-func (b *B) change() { b.thing = 1 }
-
-func (b B) write() string { return fmt.Sprint(b) }
-
 func main() {
-	var b1 B // b1是值
-	b1.change()
-	fmt.Println(b1.write())
+	http.HandleFunc("/", myWeb)
 
-	b2 := new(B) // b2是指针
-	b2.change()
-	fmt.Println(b2.write())
+	fmt.Println("服务器即将开启，访问地址 http://localhost:8080")
+
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		fmt.Println("服务器开启错误: ", err)
+	}
 }
