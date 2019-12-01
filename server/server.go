@@ -184,45 +184,44 @@ func main() {
 	log(err)
 
 EXIT:
+
+	// 与 user 建立连接
+	UserConn := make(chan net.Conn)
+	// 监听 user ，这里因为 UserConn 被阻塞在等待与 Client 建立一条 TCP 连接后才会释放
+	go goAccept(u, UserConn)
+	fmt.Println("User has prepared")
+	clientConn := accept(c)
+	fmt.Println("client has prepared", clientConn.LocalAddr().String())
+
+	recv := make(chan []byte)
+	send := make(chan []byte)
+	disHeart := make(chan bool, 1)
+	// 1个位置是为了防止两个读取线程一个退出后另一个永远卡住
+	er := make(chan bool, 1)
+	writ := make(chan bool)
+	client := &client{clientConn, er, disHeart, writ, recv, send}
+
+	go client.read()
+	go client.write()
+
 	for {
-		// 与 user 建立连接
-		UserConn := make(chan net.Conn)
-		// 监听 user ，这里因为 UserConn 被阻塞在等待与 Client 建立一条 TCP 连接后才会释放
-		go goAccept(u, UserConn)
-		fmt.Println("User has prepared")
-		clientConn := accept(c)
-		fmt.Println("client has prepared", clientConn.LocalAddr().String())
-
-		recv := make(chan []byte)
-		send := make(chan []byte)
-		disHeart := make(chan bool, 1)
-		// 1个位置是为了防止两个读取线程一个退出后另一个永远卡住
-		er := make(chan bool, 1)
-		writ := make(chan bool)
-		client := &client{clientConn, er, disHeart, writ, recv, send}
-
-		go client.read()
-		go client.write()
-
-		for {
-			select {
-			case <-client.disHeart:
-				break EXIT
-			case userConn := <-UserConn:
-				recv = make(chan []byte)
-				send = make(chan []byte)
-				// 1个位置是为了防止两个读取线程一个退出后另一个永远卡住，即 user 或者 client 有一个 er 为 true 时
-				// 就是断开它断开连接了，这是要关闭这个 TCP 连接， 但是 read goroutine 可能不止一个,每关闭一个 read goroutine 就要
-				// 关闭一个 TCP 连接，那么多个 read goroutine 不加锁的情况下可能就会造成 handle goroutine死锁
-				er = make(chan bool, 1)
-				writ = make(chan bool)
-				user := &user{userConn, er, writ, recv, send}
-				go user.read()
-				go user.write()
-				// 当两个 socket 都创立后进入 handle 处理
-				go handle(client, user)
-				break EXIT
-			}
+		select {
+		case <-client.disHeart:
+			goto EXIT
+		case userConn := <-UserConn:
+			recv = make(chan []byte)
+			send = make(chan []byte)
+			// 1个位置是为了防止两个读取线程一个退出后另一个永远卡住，即 user 或者 client 有一个 er 为 true 时
+			// 就是断开它断开连接了，这是要关闭这个 TCP 连接， 但是 read goroutine 可能不止一个,每关闭一个 read goroutine 就要
+			// 关闭一个 TCP 连接，那么多个 read goroutine 不加锁的情况下可能就会造成 handle goroutine死锁
+			er = make(chan bool, 1)
+			writ = make(chan bool)
+			user := &user{userConn, er, writ, recv, send}
+			go user.read()
+			go user.write()
+			// 当两个 socket 都创立后进入 handle 处理
+			go handle(client, user)
+			goto EXIT
 		}
 	}
 
