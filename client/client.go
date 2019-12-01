@@ -17,7 +17,7 @@ import (
 // 定义远程服务器地址，远程端口，本地端口
 var host = flag.String("host", "127.0.0.1", "Please input server's ip")
 var remotePort = flag.String("remotePort", "2333", "server port")
-var localPort = flag.String("localPort", "80", "local port")
+var localPort = flag.String("localPort", "8080", "local port")
 
 // 与 browser 相关的数据
 // er 用于 server 和 client 之间通信关闭的 channel 信息
@@ -66,7 +66,7 @@ func (b browser) write() {
 		case <-b.writ:
 			fmt.Println("Write process close")
 			// 这里存疑，break跳不出循环啊,感觉改成return
-			return
+			break
 		}
 	}
 }
@@ -116,7 +116,7 @@ func (s server) write() {
 			_, _ = s.conn.Write(send)
 		case <-s.writ:
 			fmt.Println("Write process close")
-			return
+			break
 		}
 	}
 }

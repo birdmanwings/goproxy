@@ -68,7 +68,7 @@ func (c client) write() {
 			_, _ = c.conn.Write(send)
 		case <-c.writ:
 			fmt.Println("Write process close")
-			return
+			break
 		}
 	}
 }
@@ -99,7 +99,7 @@ func (u user) write() {
 			_, _ = u.conn.Write(send)
 		case <-u.writ:
 			fmt.Println("Write user process close")
-			return
+			break
 		}
 	}
 }
